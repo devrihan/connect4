@@ -22,14 +22,13 @@ func InitDB() {
 		log.Fatal(err)
 	}
 
-	// Create tables if not exist
 	query := `
 	CREATE TABLE IF NOT EXISTS users (username VARCHAR(50) PRIMARY KEY, wins INT DEFAULT 0);
 	CREATE TABLE IF NOT EXISTS games (id SERIAL PRIMARY KEY, winner VARCHAR(50), timestamp TIMESTAMP);
 	`
 	_, err = DB.Exec(query)
 	if err != nil {
-		log.Println("Waiting for DB...", err) // Simple retry logic might be needed here in prod
+		log.Println("Waiting for DB...", err)
 	}
 }
 
@@ -41,8 +40,7 @@ func InitKafka() {
 	}
 }
 
-func LogGameEnd(winner string) {
-	// 1. Update DB
+func LogGameEnd(winner string, duration float64) {
 	if winner != "Draw" {
 		_, err := DB.Exec("INSERT INTO users (username, wins) VALUES ($1, 1) ON CONFLICT (username) DO UPDATE SET wins = users.wins + 1", winner)
 		if err != nil {
@@ -51,10 +49,10 @@ func LogGameEnd(winner string) {
 	}
 	DB.Exec("INSERT INTO games (winner, timestamp) VALUES ($1, $2)", winner, time.Now())
 
-	// 2. Send to Kafka
 	event := map[string]interface{}{
 		"event":     "GAME_OVER",
 		"winner":    winner,
+		"duration":  duration,
 		"timestamp": time.Now(),
 	}
 	msg, _ := json.Marshal(event)
@@ -64,6 +62,8 @@ func LogGameEnd(winner string) {
 	)
 	if err != nil {
 		log.Println("Kafka Error:", err)
+	} else {
+		log.Printf("Analytics sent: Winner=%s Duration=%.2fs\n", winner, duration)
 	}
 }
 

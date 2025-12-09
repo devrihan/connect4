@@ -38,15 +38,12 @@ func leaderboardHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	// Initialize Infrastructure
-	time.Sleep(5 * time.Second) // Wait for Docker DB to be ready
+	time.Sleep(5 * time.Second)
 	db.InitDB()
 	db.InitKafka()
 
-	// Start Matchmaking Routine
 	go game.StartMatchmaking()
 
-	// Routes
 	http.HandleFunc("/ws", wsHandler)
 	http.HandleFunc("/leaderboard", leaderboardHandler)
 
